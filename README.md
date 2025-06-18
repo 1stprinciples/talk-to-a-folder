@@ -1,2 +1,2 @@
 # talk-to-a-folder
-Talk to google drive
+Connect to gdrive and chat with it 
