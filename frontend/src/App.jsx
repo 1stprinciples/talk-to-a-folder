@@ -14,6 +14,7 @@ import {
   Sparkles
 } from 'lucide-react'
 import axios from 'axios'
+import { signInWithGoogle, signOutFromGoogle, getCurrentGoogleUser, initializeGoogleAPI } from './config/google'
 
 const API_BASE = 'http://localhost:8000'
 
@@ -172,7 +173,8 @@ const Sidebar = ({ isOpen, onClose, onNewChat, folders = [] }) => (
 )
 
 function App() {
-  const [sessionId, setSessionId] = useState(null)
+  const [user, setUser] = useState(null)
+  const [accessToken, setAccessToken] = useState(null)
   const [folderUrl, setFolderUrl] = useState('')
   const [jobId, setJobId] = useState(null)
   const [messages, setMessages] = useState([])
@@ -180,6 +182,7 @@ function App() {
   const [isLoading, setIsLoading] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [folders, setFolders] = useState([])
+  const [isInitializing, setIsInitializing] = useState(true)
   const messagesEndRef = useRef(null)
 
   const scrollToBottom = () => {
@@ -191,29 +194,90 @@ function App() {
   }, [messages])
 
   useEffect(() => {
-    const savedSession = localStorage.getItem('sessionId')
-    if (savedSession) {
-      setSessionId(savedSession)
+    const initializeAuth = async () => {
+      try {
+        await initializeGoogleAPI()
+        const currentUser = await getCurrentGoogleUser()
+        if (currentUser) {
+          setUser(currentUser.profile)
+          setAccessToken(currentUser.accessToken)
+          setMessages([{
+            type: 'system',
+            content: `Welcome back, ${currentUser.profile.name}! I'm your AI assistant. Paste a Google Drive folder URL to get started.`
+          }])
+        }
+      } catch (error) {
+        console.error('Auth initialization error:', error)
+      } finally {
+        setIsInitializing(false)
+      }
     }
+
+    initializeAuth()
   }, [])
 
   const handleGoogleLogin = async () => {
     try {
-      const mockAuthCode = 'mock_auth_code_' + Math.random().toString(36).substr(2, 9)
+      console.log('🔐 Starting Google login process...')
+      setIsLoading(true)
       
-      const response = await axios.post(`${API_BASE}/auth/google`, {
-        code: mockAuthCode
+      console.log('🔑 Calling signInWithGoogle...')
+      const authResult = await signInWithGoogle()
+      console.log('✅ Google sign-in successful:', {
+        hasAccessToken: !!authResult.accessToken,
+        hasIdToken: !!authResult.idToken,
+        profileName: authResult.profile?.name,
+        profileEmail: authResult.profile?.email
       })
       
-      setSessionId(response.data.session_id)
-      localStorage.setItem('sessionId', response.data.session_id)
+      // Send real access token to backend
+      console.log('📤 Sending auth data to backend...')
+      const backendPayload = {
+        access_token: authResult.accessToken,
+        id_token: authResult.idToken
+      }
+      console.log('📤 Backend payload:', {
+        hasAccessToken: !!backendPayload.access_token,
+        hasIdToken: !!backendPayload.id_token,
+        accessTokenLength: backendPayload.access_token?.length,
+        apiBase: API_BASE
+      })
+      
+      const response = await axios.post(`${API_BASE}/auth/google`, backendPayload)
+      console.log('✅ Backend auth response:', response.data)
+      
+      setUser(authResult.profile)
+      setAccessToken(authResult.accessToken)
       
       setMessages([{
         type: 'system',
-        content: 'Welcome! I\'m your AI assistant. Paste a Google Drive folder URL to get started, and I\'ll help you explore and understand your documents.'
+        content: `Welcome, ${authResult.profile.name}! I'm your AI assistant. Paste a Google Drive folder URL to get started, and I'll help you explore and understand your documents.`
       }])
+      
+      console.log('🎉 Login process completed successfully!')
     } catch (error) {
-      console.error('Auth error:', error)
+      console.error('❌ Auth error details:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+        stack: error.stack
+      })
+      alert(`Authentication failed: ${error.response?.data?.detail || error.message}`)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleSignOut = async () => {
+    try {
+      await signOutFromGoogle()
+      setUser(null)
+      setAccessToken(null)
+      setMessages([])
+      setJobId(null)
+      setFolders([])
+    } catch (error) {
+      console.error('Sign out error:', error)
     }
   }
 
@@ -223,23 +287,23 @@ function App() {
     try {
       setIsLoading(true)
       const response = await axios.post(`${API_BASE}/index`, {
-        session_id: sessionId,
+        access_token: accessToken,
         folder_url: folderUrl
       })
       
       setJobId(response.data.job_id)
       
-      // Add to folders list
+      // Add to folders list  
       const newFolder = {
-        name: folderUrl.split('/').pop() || 'New Folder',
-        fileCount: 3,
+        name: response.data.folder_name || folderUrl.split('/').pop() || 'New Folder',
+        fileCount: response.data.files_count || 0,
         id: response.data.job_id
       }
       setFolders(prev => [newFolder, ...prev])
       
       setMessages(prev => [...prev, {
         type: 'system',
-        content: '✨ Folder indexed successfully! I\'ve processed your documents and I\'m ready to answer questions. Try asking me about the content, technologies, or any specific topics you\'re curious about!'
+        content: `✨ Folder "${newFolder.name}" indexed successfully! I found ${newFolder.fileCount} files and I'm ready to answer questions about them.`
       }])
       
       setFolderUrl('')
@@ -248,7 +312,7 @@ function App() {
       console.error('Index error:', error)
       setMessages(prev => [...prev, {
         type: 'system',
-        content: 'Sorry, I couldn\'t index that folder. Please check the URL and try again.'
+        content: 'Sorry, I couldn\'t index that folder. Please make sure the folder is shared publicly or you have access to it.'
       }])
     } finally {
       setIsLoading(false)
@@ -269,8 +333,9 @@ function App() {
     try {
       setIsLoading(true)
       const response = await axios.post(`${API_BASE}/chat`, {
-        session_id: sessionId,
-        message: userMessage
+        access_token: accessToken,
+        message: userMessage,
+        job_id: jobId
       })
       
       setMessages(prev => [...prev, {
@@ -304,7 +369,22 @@ function App() {
     setSidebarOpen(false)
   }
 
-  if (!sessionId) {
+  if (isInitializing) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center p-4">
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="text-center"
+        >
+          <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">Initializing...</p>
+        </motion.div>
+      </div>
+    )
+  }
+
+  if (!user) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center p-4">
         <motion.div
@@ -347,9 +427,10 @@ function App() {
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             onClick={handleGoogleLogin}
-            className="bg-gradient-to-r from-blue-500 to-purple-600 text-white px-8 py-4 rounded-2xl font-semibold text-lg shadow-lg hover:shadow-xl transition-all duration-300"
+            disabled={isLoading}
+            className="bg-gradient-to-r from-blue-500 to-purple-600 text-white px-8 py-4 rounded-2xl font-semibold text-lg shadow-lg hover:shadow-xl transition-all duration-300 disabled:opacity-50"
           >
-            Continue with Google
+            {isLoading ? 'Signing in...' : 'Continue with Google'}
           </motion.button>
         </motion.div>
       </div>
@@ -404,16 +485,24 @@ function App() {
             </div>
           )}
           
-          <button
-            onClick={() => {
-              setSessionId(null)
-              localStorage.removeItem('sessionId')
-              setMessages([])
-            }}
-            className="text-gray-600 hover:text-gray-900 px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors"
-          >
-            Sign Out
-          </button>
+          <div className="flex items-center space-x-3">
+            {user && (
+              <div className="flex items-center space-x-2">
+                <img 
+                  src={user.imageUrl} 
+                  alt={user.name}
+                  className="w-8 h-8 rounded-full"
+                />
+                <span className="text-sm font-medium text-gray-700">{user.name}</span>
+              </div>
+            )}
+            <button
+              onClick={handleSignOut}
+              className="text-gray-600 hover:text-gray-900 px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors"
+            >
+              Sign Out
+            </button>
+          </div>
         </motion.div>
 
         {/* Messages */}
