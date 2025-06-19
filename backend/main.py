@@ -6,9 +6,7 @@ import os
 from datetime import datetime
 from dotenv import load_dotenv
 import openai
-import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
-import asyncio
 import requests
 import re
 from googleapiclient.discovery import build
@@ -74,7 +72,7 @@ async def get_embedding(text: str) -> List[float]:
     try:
         import openai
         response = openai.Embedding.create(
-            model="text-embedding-ada-002",
+            model="text-embedding-3-large",
             input=text
         )
         return response['data'][0]['embedding']
@@ -341,7 +339,7 @@ async def auth_google(request: AuthRequest):
 @app.post("/index", response_model=IndexResponse)
 async def index_folder(request: IndexRequest):
     # Validate access token
-    user_info = validate_google_token(request.access_token)
+    _ = validate_google_token(request.access_token)
     
     job_id = f"job_{len(folder_data) + 1}"
     
@@ -441,7 +439,7 @@ async def get_index_status(job_id: str):
 @app.post("/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest):
     # Validate access token
-    user_info = validate_google_token(request.access_token)
+    _ = validate_google_token(request.access_token)
     
     # Check if the job exists and is completed
     if request.job_id not in folder_data:
