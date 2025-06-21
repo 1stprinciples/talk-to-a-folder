@@ -26,13 +26,13 @@ An AI-powered web application that lets you connect your Google Drive, index fol
 - OpenAI API account
 - Tesseract OCR (for PDF OCR support) - [Installation Guide](https://tesseract-ocr.github.io/tessdoc/Installation.html)
 
-## Setup Instructions
+## Quick Setup Instructions
 
 ### 1. Clone and Install Dependencies
 
 ```bash
 # Clone the repository
-git clone <your-repo-url>
+git clone https://github.com/yourusername/talk-to-a-folder.git
 cd talk-to-a-folder
 
 # Install frontend dependencies
@@ -103,15 +103,23 @@ const CLIENT_ID = 'your_google_client_id_here'
 
 ### 6. Run the Application
 
-Start the backend server:
+**Option A: Use automated scripts (recommended)**
 ```bash
+# Start backend (Terminal 1)
+./run-backend.sh
+
+# Start frontend (Terminal 2)  
+./run-frontend.sh
+```
+
+**Option B: Manual startup**
+```bash
+# Start backend server (Terminal 1)
 cd backend
 python main.py
 # Server will run on http://localhost:8000
-```
 
-In a new terminal, start the frontend:
-```bash
+# Start frontend (Terminal 2)
 cd frontend
 npm run dev
 # Frontend will run on http://localhost:5173
@@ -242,6 +250,15 @@ The system maintains conversation history (last 10 exchanges) to provide context
 ## License
 
 This project is for educational and personal use.
+
+## Quick Start Summary
+
+1. **Install prerequisites**: Node.js, Python, Tesseract OCR
+2. **Get API keys**: OpenAI API key + Google OAuth credentials  
+3. **Clone and install**: `git clone` → `npm install` → `pip install -r requirements.txt`
+4. **Configure**: Copy `.env.example` to `.env` and add your keys
+5. **Run**: `./run-backend.sh` and `./run-frontend.sh` (or manual startup)
+6. **Use**: Visit http://localhost:5173, sign in with Google, paste folder URL, chat!
 
 ## Support
 
