@@ -5,26 +5,43 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
 @layer base {
+  /* ---------------------------------------------------
+   *  TENEX Brand Palette
+   *  --------------------------------------------------
+   *  background: off-white / eggshell (#F5F3EB)
+   *  foreground: near-black  (#111)
+   *  primary   : true black (#000)
+   *  -------------------------------------------------- */
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --primary: 221.2 83.2% 53.3%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96%;
-    --secondary-foreground: 222.2 84% 4.9%;
-    --muted: 210 40% 96%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96%;
-    --accent-foreground: 222.2 84% 4.9%;
+    --background: 45 25% 95%;           /* #F5F3EB */
+    --foreground: 0 0% 7%;              /* #111 */
+
+    --card: 45 25% 95%;
+    --card-foreground: 0 0% 7%;
+
+    --popover: 45 25% 95%;
+    --popover-foreground: 0 0% 7%;
+
+    --primary: 0 0% 0%;                 /* Black */
+    --primary-foreground: 0 0% 100%;    /* White */
+
+    --secondary: 42 16% 90%;            /* subtle light border area */
+    --secondary-foreground: 0 0% 7%;
+
+    --muted: 42 16% 90%;
+    --muted-foreground: 0 0% 35%;
+
+    --accent: 42 16% 90%;
+    --accent-foreground: 0 0% 7%;
+
     --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 221.2 83.2% 53.3%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 42 16% 85%;
+    --input: 42 16% 85%;
+
+    --ring: 0 0% 0%;
+
     --radius: 0.75rem;
   }
 
@@ -59,8 +76,8 @@ body {
   margin: 0;
   padding: 0;
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  background: #f7f7f8;
-  color: #374151;
+  background: #F5F3EB; /* TENEX eggshell */
+  color: #111;        /* near-black foreground */
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }

@@ -5,6 +5,10 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 
+// Markdown renderer
+import { marked } from 'marked'
+import DOMPurify from 'dompurify'
+
 const ChatMessage = ({ message, index, user }) => {
   const isUser = message.type === 'user'
   const isSystem = message.type === 'system'
@@ -54,10 +58,13 @@ const ChatMessage = ({ message, index, user }) => {
               ? 'bg-muted border-muted-foreground/20'
               : 'bg-card'
           }`}>
-            <div className="p-4">
-              <p className="text-sm leading-relaxed whitespace-pre-wrap">
+            <div className="px-4 py-2">
+              <div
+                className={`text-sm leading-relaxed ${isUser ? 'text-primary-foreground' : 'text-foreground'}`}
+                style={{ margin: 0, padding: 0 }}
+              >
                 {message.content}
-              </p>
+              </div>
               
               {message.citations && message.citations.length > 0 && (
                 <motion.div

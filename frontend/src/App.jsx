@@ -6,6 +6,9 @@ import {
   Sparkles,
   LogOut
 } from 'lucide-react'
+
+// Assets
+import TenexLogo from '@/assets/tenex_logo.svg'
 import axios from 'axios'
 import { signInWithGoogle, signOutFromGoogle, getCurrentGoogleUser, initializeGoogleAPI } from './config/google'
 
@@ -355,12 +358,12 @@ function App() {
           className="text-center max-w-md w-full"
         >
           <motion.div
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
+            initial={{ opacity: 0, scale: 0.5 }}
+            animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
-            className="w-20 h-20 bg-gradient-to-r from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-8"
+            className="mb-8 flex justify-center w-full"
           >
-            <Sparkles className="w-10 h-10 text-white" />
+            <img src={TenexLogo} alt="Tenex logo" className="w-48 h-auto mx-auto" />
           </motion.div>
           
           <motion.h1
@@ -378,7 +381,7 @@ function App() {
             transition={{ delay: 0.6 }}
             className="text-muted-foreground mb-8 text-lg"
           >
-            Connect your Google Drive and have intelligent conversations with your documents
+            Connect your Google Drive and have intelligent conversations with your documents.
           </motion.p>
           
           <motion.div
@@ -390,7 +393,7 @@ function App() {
               onClick={handleGoogleLogin}
               disabled={isLoading}
               size="lg"
-              className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white px-8 py-3 text-lg shadow-lg hover:shadow-xl transition-all duration-300"
+              className="bg-primary text-primary-foreground hover:bg-primary/90 px-8 py-3 text-lg shadow-lg hover:shadow-xl transition-all duration-300"
             >
               {isLoading ? 'Signing in...' : 'Continue with Google'}
             </Button>
@@ -465,7 +468,7 @@ function App() {
                       console.log('Avatar image loaded successfully:', user.imageUrl)
                     }}
                   />
-                  <AvatarFallback className="bg-blue-500 text-white">
+                  <AvatarFallback className="bg-primary text-primary-foreground">
                     {user.name?.charAt(0)?.toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
@@ -505,22 +508,23 @@ function App() {
             className="border-t bg-card p-4"
           >
             <div className="max-w-4xl mx-auto">
-              <div className="flex items-center gap-4">
-                <div className="flex-1 flex items-center border rounded-2xl px-3 py-2 bg-background focus-within:ring-2 focus-within:ring-ring">
+              <div className="flex items-center gap-3">
+                <div className="flex-1 relative">
                   <textarea
                     value={currentMessage}
                     onChange={(e) => setCurrentMessage(e.target.value)}
                     onKeyPress={handleKeyPress}
                     placeholder="Ask me anything about your documents..."
-                    className="flex-1 bg-transparent outline-none resize-none max-h-32 placeholder:text-muted-foreground text-base leading-6 pr-2"
+                    className="w-full px-4 py-3 pr-12 border rounded-2xl bg-background outline-none resize-none max-h-32 placeholder:text-muted-foreground text-base leading-6 focus:ring-2 focus:ring-ring focus:border-transparent"
                     rows="1"
                     disabled={isLoading}
+                    style={{ minHeight: '48px' }}
                   />
                   <Button
                     size="icon"
                     onClick={handleSendMessage}
                     disabled={isLoading || !currentMessage.trim()}
-                    className="h-8 w-8 rounded-xl flex-shrink-0"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 rounded-xl"
                   >
                     <Send className="h-4 w-4" />
                   </Button>

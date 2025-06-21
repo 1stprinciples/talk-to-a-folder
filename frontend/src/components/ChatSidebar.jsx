@@ -18,11 +18,11 @@ const ChatSidebar = ({ isOpen, onClose, onNewChat, chatSessions = [], onLoadChat
       <div className="flex flex-col h-full">
         <SheetHeader className="p-6 pb-4">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg">
-              <Sparkles className="h-5 w-5 text-white" />
+            <div className="p-2 bg-primary rounded-lg">
+              <Sparkles className="h-5 w-5 text-primary-foreground" />
             </div>
             <div>
-              <SheetTitle className="text-lg">Talk to a Folder</SheetTitle>
+              <SheetTitle className="text-lg font-bold tracking-wide">TENEX</SheetTitle>
               <SheetDescription className="text-sm">
                 AI-powered document conversations
               </SheetDescription>
@@ -77,8 +77,8 @@ const ChatSidebar = ({ isOpen, onClose, onNewChat, chatSessions = [], onLoadChat
                         onClick={() => onLoadChat(session.id)}
                       >
                         <div className="flex items-start gap-3">
-                          <div className="p-1.5 bg-green-100 dark:bg-green-900/30 rounded">
-                            <MessageSquare className="h-3 w-3 text-green-600 dark:text-green-400" />
+                          <div className="p-1.5 bg-primary/10 dark:bg-primary/30 rounded">
+                            <MessageSquare className="h-3 w-3 text-primary" />
                           </div>
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium truncate">
