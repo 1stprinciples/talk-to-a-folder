@@ -508,23 +508,22 @@ function App() {
             className="border-t bg-card p-4"
           >
             <div className="max-w-4xl mx-auto">
-              <div className="flex items-center gap-3">
-                <div className="flex-1 relative">
+              <div className="flex items-end gap-3">
+                <div className="flex-1 flex items-center border rounded-2xl px-4 py-3 bg-background focus-within:ring-2 focus-within:ring-ring focus-within:border-transparent">
                   <textarea
                     value={currentMessage}
                     onChange={(e) => setCurrentMessage(e.target.value)}
                     onKeyPress={handleKeyPress}
                     placeholder="Ask me anything about your documents..."
-                    className="w-full px-4 py-3 pr-12 border rounded-2xl bg-background outline-none resize-none max-h-32 placeholder:text-muted-foreground text-base leading-6 focus:ring-2 focus:ring-ring focus:border-transparent"
+                    className="flex-1 bg-transparent outline-none resize-none max-h-32 placeholder:text-muted-foreground text-base leading-6"
                     rows="1"
                     disabled={isLoading}
-                    style={{ minHeight: '48px' }}
                   />
                   <Button
                     size="icon"
                     onClick={handleSendMessage}
                     disabled={isLoading || !currentMessage.trim()}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 rounded-xl"
+                    className="ml-2 h-8 w-8 rounded-xl flex-shrink-0"
                   >
                     <Send className="h-4 w-4" />
                   </Button>

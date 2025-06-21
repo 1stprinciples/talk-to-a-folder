@@ -60,11 +60,13 @@ const ChatMessage = ({ message, index, user }) => {
           }`}>
             <div className="px-4 py-2">
               <div
-                className={`text-sm leading-relaxed ${isUser ? 'text-primary-foreground' : 'text-foreground'}`}
-                style={{ margin: 0, padding: 0 }}
-              >
-                {message.content}
-              </div>
+                className={`prose prose-sm max-w-none ${isUser ? 'prose-invert' : ''} 
+                [&>*]:my-0 [&>p]:my-0 [&>ul]:my-0 [&>ol]:my-0 [&>h1]:my-0 [&>h2]:my-0 [&>h3]:my-0 
+                [&>pre]:my-0 [&>blockquote]:my-0 [&>*:first-child]:mt-0 [&>*:last-child]:mb-0`}
+                dangerouslySetInnerHTML={{
+                  __html: DOMPurify.sanitize(marked.parse(message.content || '')),
+                }}
+              />
               
               {message.citations && message.citations.length > 0 && (
                 <motion.div
