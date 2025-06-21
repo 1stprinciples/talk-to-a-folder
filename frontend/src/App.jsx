@@ -163,6 +163,12 @@ function App() {
       
       const response = await axios.post(`${API_BASE}/auth/google`, backendPayload)
       console.log('✅ Backend auth response:', response.data)
+      console.log('👤 Setting user profile:', {
+        name: authResult.profile.name,
+        email: authResult.profile.email,
+        imageUrl: authResult.profile.imageUrl,
+        hasImageUrl: !!authResult.profile.imageUrl
+      })
       
       setUser(authResult.profile)
       setAccessToken(authResult.accessToken)
@@ -447,8 +453,21 @@ function App() {
             {user && (
               <div className="flex items-center gap-2">
                 <Avatar className="h-8 w-8">
-                  <AvatarImage src={user.imageUrl} alt={user.name} />
-                  <AvatarFallback>{user.name?.charAt(0)}</AvatarFallback>
+                  <AvatarImage 
+                    src={user.imageUrl} 
+                    alt={user.name}
+                    referrerPolicy="no-referrer"
+                    onError={(e) => {
+                      console.log('Avatar image failed to load:', user.imageUrl)
+                      e.target.style.display = 'none'
+                    }}
+                    onLoad={() => {
+                      console.log('Avatar image loaded successfully:', user.imageUrl)
+                    }}
+                  />
+                  <AvatarFallback className="bg-blue-500 text-white">
+                    {user.name?.charAt(0)?.toUpperCase()}
+                  </AvatarFallback>
                 </Avatar>
                 <span className="text-sm font-medium hidden sm:inline">
                   {user.name}
@@ -471,7 +490,7 @@ function App() {
         <div className="flex-1 overflow-y-auto py-6 space-y-6">
           <AnimatePresence>
             {messages.map((message, index) => (
-              <ChatMessage key={index} message={message} index={index} />
+              <ChatMessage key={index} message={message} index={index} user={user} />
             ))}
             {isLoading && <TypingIndicator />}
           </AnimatePresence>

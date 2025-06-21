@@ -11,6 +11,16 @@ import requests
 import re
 from googleapiclient.discovery import build
 from google.oauth2.credentials import Credentials
+import io
+import tempfile
+
+# Document processing imports
+import PyPDF2
+from docx import Document
+from bs4 import BeautifulSoup
+import pytesseract
+from PIL import Image
+from pdf2image import convert_from_bytes
 
 # Load environment variables
 load_dotenv()
@@ -39,6 +49,7 @@ sessions = {}
 folder_data = {}
 document_store = {}  # Store document chunks and embeddings
 embeddings_cache = {}  # Cache for document embeddings
+conversation_history = {}  # Store conversation history for each job_id
 
 class AuthRequest(BaseModel):
     access_token: str
@@ -118,31 +129,47 @@ async def find_relevant_chunks(query: str, job_id: str, top_k: int = 3) -> List[
     similarities.sort(key=lambda x: x[0], reverse=True)
     return [data for _, data in similarities[:top_k]]
 
-async def generate_answer(query: str, context_chunks: List[Dict]) -> str:
-    """Generate answer using OpenAI with context"""
+async def generate_answer(query: str, context_chunks: List[Dict], conversation_history: List[Dict] = None) -> str:
+    """Generate answer using OpenAI with context and conversation history"""
     try:
-        # Prepare context
+        # Prepare context from documents
         context = "\n\n".join([
             f"From {chunk['file_name']}: {chunk['text']}" 
             for chunk in context_chunks
         ])
         
-        # Create prompt
-        prompt = f"""You are a helpful assistant that answers questions about documents in a Google Drive folder.
+        # Build messages for conversation
+        messages = [
+            {"role": "system", "content": f"""You are a helpful AI assistant that answers questions about documents in a Google Drive folder. 
 
-Context from the documents:
+Available document context:
 {context}
 
-Question: {query}
-
-Please provide a clear, accurate answer based on the context provided. If the context doesn't contain enough information to answer the question, say so honestly."""
+Instructions:
+- Use the document context to answer questions accurately
+- Reference specific documents when relevant
+- If the context doesn't contain enough information, say so honestly
+- Maintain conversation continuity by referring to previous messages when appropriate
+- Be conversational and helpful"""}
+        ]
+        
+        # Add conversation history (last 10 messages, excluding current user message)
+        if conversation_history:
+            # Get last 10 messages but exclude the current user message that was just added
+            history_to_include = conversation_history[:-1][-10:] if len(conversation_history) > 1 else []
+            print(f"🧠 Including {len(history_to_include)} previous messages in context")
+            for msg in history_to_include:
+                messages.append({
+                    "role": msg["role"],
+                    "content": msg["content"]
+                })
+        
+        # Add current question
+        messages.append({"role": "user", "content": query})
 
         response = openai.ChatCompletion.create(
             model=MODEL_NAME,
-            messages=[
-                {"role": "system", "content": "You are a helpful assistant for document Q&A."},
-                {"role": "user", "content": prompt}
-            ],
+            messages=messages,
             max_tokens=MAX_TOKENS,
             temperature=TEMPERATURE
         )
@@ -202,6 +229,103 @@ def get_drive_service(access_token: str):
     credentials = Credentials(token=access_token)
     return build('drive', 'v3', credentials=credentials)
 
+# Document processing helper functions
+def extract_text_from_pdf(pdf_content: bytes) -> str:
+    """Extract text from PDF with fallback to OCR for non-machine readable PDFs"""
+    try:
+        # First, try standard text extraction
+        pdf_reader = PyPDF2.PdfReader(io.BytesIO(pdf_content))
+        text = ""
+        
+        for page in pdf_reader.pages:
+            page_text = page.extract_text()
+            text += page_text + "\n"
+        
+        # If we got substantial text, return it
+        if len(text.strip()) > 100:  # Arbitrary threshold
+            print(f"✅ PDF text extraction successful ({len(text)} characters)")
+            return text.strip()
+        
+        # If little or no text found, try OCR
+        print("⚠️ PDF appears to be image-based, attempting OCR...")
+        return extract_text_from_pdf_ocr(pdf_content)
+        
+    except Exception as e:
+        print(f"❌ PDF text extraction failed, trying OCR: {e}")
+        return extract_text_from_pdf_ocr(pdf_content)
+
+def extract_text_from_pdf_ocr(pdf_content: bytes) -> str:
+    """Extract text from PDF using OCR"""
+    try:
+        # Convert PDF pages to images
+        images = convert_from_bytes(pdf_content)
+        
+        text = ""
+        for i, image in enumerate(images):
+            print(f"🔍 OCR processing page {i + 1}/{len(images)}")
+            
+            # Use Tesseract OCR to extract text
+            page_text = pytesseract.image_to_string(image, lang='eng')
+            text += f"\n--- Page {i + 1} ---\n{page_text}\n"
+        
+        print(f"✅ OCR extraction completed ({len(text)} characters)")
+        return text.strip()
+        
+    except Exception as e:
+        print(f"❌ OCR extraction failed: {e}")
+        return f"[OCR extraction failed: {str(e)}. Please ensure Tesseract is installed.]"
+
+def extract_text_from_docx(docx_content: bytes) -> str:
+    """Extract text from DOCX file"""
+    try:
+        doc = Document(io.BytesIO(docx_content))
+        text = ""
+        
+        for paragraph in doc.paragraphs:
+            text += paragraph.text + "\n"
+        
+        # Also extract text from tables
+        for table in doc.tables:
+            for row in table.rows:
+                for cell in row.cells:
+                    text += cell.text + " "
+                text += "\n"
+        
+        print(f"✅ DOCX text extraction successful ({len(text)} characters)")
+        return text.strip()
+        
+    except Exception as e:
+        print(f"❌ DOCX extraction failed: {e}")
+        return f"[DOCX extraction failed: {str(e)}]"
+
+def extract_text_from_html(html_content: bytes) -> str:
+    """Extract text from HTML file"""
+    try:
+        # Decode bytes to string
+        html_text = html_content.decode('utf-8', errors='ignore')
+        
+        # Parse HTML and extract text
+        soup = BeautifulSoup(html_text, 'html.parser')
+        
+        # Remove script and style elements
+        for script in soup(["script", "style"]):
+            script.decompose()
+        
+        # Get text content
+        text = soup.get_text()
+        
+        # Clean up whitespace
+        lines = (line.strip() for line in text.splitlines())
+        chunks = (phrase.strip() for line in lines for phrase in line.split("  "))
+        text = ' '.join(chunk for chunk in chunks if chunk)
+        
+        print(f"✅ HTML text extraction successful ({len(text)} characters)")
+        return text
+        
+    except Exception as e:
+        print(f"❌ HTML extraction failed: {e}")
+        return f"[HTML extraction failed: {str(e)}]"
+
 async def fetch_folder_files(access_token: str, folder_id: str) -> List[Dict]:
     """Fetch files from Google Drive folder"""
     try:
@@ -234,20 +358,28 @@ async def fetch_folder_files(access_token: str, folder_id: str) -> List[Dict]:
         
         # Filter for supported file types
         supported_types = [
+            # Text files
             'text/plain',
-            'application/pdf',
-            'application/vnd.google-apps.document',
-            'application/vnd.google-apps.spreadsheet',
-            'application/vnd.google-apps.presentation',
-            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-            'application/msword',
-            'application/vnd.ms-excel',
-            'application/vnd.ms-powerpoint',
             'text/csv',
             'text/html',
-            'application/rtf'
+            'application/xhtml+xml',
+            'application/rtf',
+            
+            # PDF files (with OCR support)
+            'application/pdf',
+            
+            # Microsoft Office documents
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',  # DOCX
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',         # XLSX
+            'application/vnd.openxmlformats-officedocument.presentationml.presentation', # PPTX
+            'application/msword',           # Legacy DOC
+            'application/vnd.ms-excel',     # Legacy XLS
+            'application/vnd.ms-powerpoint', # Legacy PPT
+            
+            # Google Workspace documents
+            'application/vnd.google-apps.document',     # Google Docs
+            'application/vnd.google-apps.spreadsheet',  # Google Sheets
+            'application/vnd.google-apps.presentation'  # Google Slides
         ]
         
         print(f"🔍 Supported file types: {supported_types}")
@@ -283,25 +415,80 @@ async def download_file_content(access_token: str, file_id: str, mime_type: str)
     try:
         service = get_drive_service(access_token)
         
+        print(f"📁 Processing file with MIME type: {mime_type}")
+        
         if mime_type == 'application/vnd.google-apps.document':
             # Export Google Doc as plain text
             content = service.files().export(
                 fileId=file_id, 
                 mimeType='text/plain'
             ).execute()
-            return content.decode('utf-8')
+            text = content.decode('utf-8')
+            print(f"✅ Google Doc processed ({len(text)} characters)")
+            return text
         
         elif mime_type == 'text/plain':
             # Download plain text file
             content = service.files().get_media(fileId=file_id).execute()
-            return content.decode('utf-8')
+            text = content.decode('utf-8', errors='ignore')
+            print(f"✅ TXT file processed ({len(text)} characters)")
+            return text
+        
+        elif mime_type == 'application/pdf':
+            # Download PDF file and extract text
+            content = service.files().get_media(fileId=file_id).execute()
+            return extract_text_from_pdf(content)
+        
+        elif mime_type == 'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
+            # Download DOCX file and extract text
+            content = service.files().get_media(fileId=file_id).execute()
+            return extract_text_from_docx(content)
+        
+        elif mime_type in ['text/html', 'application/xhtml+xml']:
+            # Download HTML file and extract text
+            content = service.files().get_media(fileId=file_id).execute()
+            return extract_text_from_html(content)
+        
+        elif mime_type == 'text/csv':
+            # Download CSV file
+            content = service.files().get_media(fileId=file_id).execute()
+            text = content.decode('utf-8', errors='ignore')
+            print(f"✅ CSV file processed ({len(text)} characters)")
+            return text
+        
+        elif mime_type == 'application/rtf':
+            # Download RTF file (basic text extraction)
+            content = service.files().get_media(fileId=file_id).execute()
+            text = content.decode('utf-8', errors='ignore')
+            print(f"✅ RTF file processed ({len(text)} characters)")
+            return text
+        
+        elif mime_type == 'application/vnd.google-apps.spreadsheet':
+            # Export Google Sheets as CSV
+            content = service.files().export(
+                fileId=file_id, 
+                mimeType='text/csv'
+            ).execute()
+            text = content.decode('utf-8')
+            print(f"✅ Google Sheets processed ({len(text)} characters)")
+            return text
+        
+        elif mime_type == 'application/vnd.google-apps.presentation':
+            # Export Google Slides as plain text
+            content = service.files().export(
+                fileId=file_id, 
+                mimeType='text/plain'
+            ).execute()
+            text = content.decode('utf-8')
+            print(f"✅ Google Slides processed ({len(text)} characters)")
+            return text
         
         else:
-            # For now, skip PDF and DOCX - we'll add these later
+            print(f"⚠️ Unsupported file type: {mime_type}")
             return f"[File type {mime_type} not yet supported for text extraction]"
             
     except Exception as e:
-        print(f"Error downloading file {file_id}: {e}")
+        print(f"❌ Error downloading file {file_id}: {e}")
         return f"[Error reading file: {str(e)}]"
 
 @app.get("/")
@@ -453,6 +640,16 @@ async def chat(request: ChatRequest):
         )
     
     try:
+        # Initialize conversation history for this job_id if it doesn't exist
+        if request.job_id not in conversation_history:
+            conversation_history[request.job_id] = []
+        
+        # Add user message to conversation history
+        conversation_history[request.job_id].append({
+            "role": "user",
+            "content": request.message
+        })
+        
         # Use RAG pipeline for intelligent responses
         relevant_chunks = await find_relevant_chunks(request.message, request.job_id)
         
@@ -460,8 +657,22 @@ async def chat(request: ChatRequest):
             # Fallback if no relevant chunks found
             answer = f"I couldn't find relevant information in the indexed files from '{job_data.get('folder_name', 'your folder')}' to answer that question. Try asking about the content of the documents in the folder."
         else:
-            # Generate AI response with context
-            answer = await generate_answer(request.message, relevant_chunks)
+            # Generate AI response with context and conversation history
+            answer = await generate_answer(
+                request.message, 
+                relevant_chunks, 
+                conversation_history[request.job_id]
+            )
+        
+        # Add AI response to conversation history
+        conversation_history[request.job_id].append({
+            "role": "assistant",
+            "content": answer
+        })
+        
+        # Keep only last 20 messages (10 exchanges) to prevent memory issues
+        if len(conversation_history[request.job_id]) > 20:
+            conversation_history[request.job_id] = conversation_history[request.job_id][-20:]
         
         # Create citations from relevant chunks
         citations = []
@@ -476,6 +687,8 @@ async def chat(request: ChatRequest):
                 })
                 seen_files.add(file_name)
         
+        print(f"💬 Conversation history for {request.job_id}: {len(conversation_history[request.job_id])} messages")
+        
         return ChatResponse(answer=answer, citations=citations)
         
     except Exception as e:
@@ -484,6 +697,25 @@ async def chat(request: ChatRequest):
             answer=f"I apologize, but I encountered an error while processing your question. Please make sure your OpenAI API key is properly configured. Error: {str(e)}",
             citations=[]
         )
+
+@app.delete("/chat/{job_id}/history")
+async def clear_conversation_history(job_id: str):
+    """Clear conversation history for a specific job_id"""
+    if job_id in conversation_history:
+        del conversation_history[job_id]
+        return {"message": f"Conversation history cleared for job {job_id}"}
+    return {"message": f"No conversation history found for job {job_id}"}
+
+@app.get("/chat/{job_id}/history")
+async def get_conversation_history(job_id: str):
+    """Get conversation history for a specific job_id (for debugging)"""
+    if job_id in conversation_history:
+        return {
+            "job_id": job_id,
+            "message_count": len(conversation_history[job_id]),
+            "messages": conversation_history[job_id]
+        }
+    return {"job_id": job_id, "message_count": 0, "messages": []}
 
 if __name__ == "__main__":
     import uvicorn

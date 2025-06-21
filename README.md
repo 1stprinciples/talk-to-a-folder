@@ -24,6 +24,7 @@ An AI-powered web application that lets you connect your Google Drive, index fol
 - Python 3.8+
 - Google Cloud Console account
 - OpenAI API account
+- Tesseract OCR (for PDF OCR support) - [Installation Guide](https://tesseract-ocr.github.io/tessdoc/Installation.html)
 
 ## Setup Instructions
 
@@ -42,6 +43,11 @@ npm install
 cd ../backend
 pip install -r requirements.txt
 ```
+
+**Note**: For OCR support, you'll also need to install Tesseract:
+- **macOS**: `brew install tesseract`
+- **Ubuntu/Debian**: `sudo apt-get install tesseract-ocr`
+- **Windows**: Download from [GitHub releases](https://github.com/UB-Mannheim/tesseract/wiki)
 
 ### 2. Google Cloud Setup
 
@@ -120,13 +126,24 @@ npm run dev
 
 ## Supported File Types
 
+### Text Files
 - Plain text files (.txt)
+- CSV files (.csv)
+- HTML files (.html, .htm)
+- RTF files (.rtf)
+
+### Document Files
+- **PDF files (.pdf)** - Includes OCR support for image-based/scanned PDFs
+- Microsoft Word (.docx, .doc)
+- Microsoft Excel (.xlsx, .xls)
+- Microsoft PowerPoint (.pptx, .ppt)
+
+### Google Workspace
 - Google Docs
-- PDF files (basic support)
-- Microsoft Word (.docx)
-- CSV files
-- HTML files
-- RTF files
+- Google Sheets
+- Google Slides
+
+**Note**: PDF files automatically detect if they contain machine-readable text. If not, the system will use OCR (Optical Character Recognition) to extract text from images.
 
 ## Project Structure
 
@@ -200,6 +217,12 @@ The system maintains conversation history (last 10 exchanges) to provide context
    - Ensure all dependencies are installed
    - Check Python version compatibility
    - Verify virtual environment is activated
+
+5. **OCR extraction failed**
+   - Install Tesseract OCR: `brew install tesseract` (macOS) or `sudo apt-get install tesseract-ocr` (Ubuntu)
+   - For Windows, download from [Tesseract releases](https://github.com/UB-Mannheim/tesseract/wiki)
+   - Verify installation: `tesseract --version`
+   - Check that Tesseract is in your system PATH
 
 ### Development Tips
 

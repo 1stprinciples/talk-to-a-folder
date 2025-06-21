@@ -1,11 +1,11 @@
 import { motion } from 'framer-motion'
 import { Bot, User, FileText, ExternalLink } from 'lucide-react'
 import { Card } from '@/components/ui/card'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 
-const ChatMessage = ({ message, index }) => {
+const ChatMessage = ({ message, index, user }) => {
   const isUser = message.type === 'user'
   const isSystem = message.type === 'system'
   
@@ -20,8 +20,23 @@ const ChatMessage = ({ message, index }) => {
     >
       {!isSystem && (
         <Avatar className="shrink-0 border-2 border-background shadow-sm">
+          {isUser && user?.imageUrl ? (
+            <AvatarImage 
+              src={user.imageUrl} 
+              alt={user.name}
+              referrerPolicy="no-referrer"
+              onError={(e) => {
+                console.log('Chat avatar image failed to load:', user.imageUrl)
+                e.target.style.display = 'none'
+              }}
+            />
+          ) : null}
           <AvatarFallback className={isUser ? 'bg-primary text-primary-foreground' : 'bg-muted'}>
-            {isUser ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
+            {isUser ? (
+              user?.name?.charAt(0)?.toUpperCase() || <User className="h-4 w-4" />
+            ) : (
+              <Bot className="h-4 w-4" />
+            )}
           </AvatarFallback>
         </Avatar>
       )}

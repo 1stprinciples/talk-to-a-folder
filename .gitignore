@@ -36,3 +36,9 @@ build/
 # Temporary files
 *.tmp
 *.temp
+
+# Personal notes
+todo.md
+CLAUDE.md
+/Users/kumi/gitrepos/talk-to-a-folder/todo.md 
+todo.md 
